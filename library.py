@@ -34,7 +34,13 @@ class BjTotal:
 
 
 def calodds(cards: list[int], ptotal: BjTotal, dtotal: BjTotal) -> tuple[float, float, float]:
-    if ptotal.isbust():
+    if dtotal.isbj() and ptotal.isbj():
+        return 0, 1, 0
+    elif dtotal.isbj():
+        return 0, 0, 1
+    elif ptotal.isbj():
+        return 1, 0, 0
+    elif ptotal.isbust():
         return 0, 0, 1
     elif dtotal.isbust():
         return 1, 0, 0
@@ -51,11 +57,10 @@ def calodds(cards: list[int], ptotal: BjTotal, dtotal: BjTotal) -> tuple[float, 
             continue
         cardsdup = cards.copy()
         cardsdup.remove(i)
-        dtotaldup = copy.copy(dtotal)
+        dtotaldup = copy.deepcopy(dtotal)
         dtotaldup.add(i)
         odds = calodds(cardsdup, ptotal, dtotaldup)
         win += odds[0] * cards.count(i) / len(cards)
         tie += odds[1] * cards.count(i) / len(cards)
         lose += odds[2] * cards.count(i) / len(cards)
-    print(dtotal, (win, tie, lose))
     return win, tie, lose
