@@ -1,104 +1,61 @@
-from alive_progress import alive_bar
-from enum import Enum
 import random
+import copy
 
 
-class Cards(Enum):
-    DEUS = 0
-    THREE = 1
-    FOUR = 2
-    FIVE = 3
-    SIX = 4
-    SEVEN = 5
-    EIGHT = 6
-    NINE = 7
-    TEN = 8
-    ACE = 9
+class BjTotal:
+    def __init__(self, *cards: int) -> None:
+        self.cards = list(cards)
+        self.soft = 1 in cards and sum(cards) <= 11
+        self.total = sum(cards) + (10 if self.soft else 0)
 
-    def __str__(self):
-        return 
+    def __str__(self) -> str:
+        _str = 'Total = '
+        _str += f'{self.total - 10} / {self.total}' if self.soft else f'{self.total}'
+        return _str + f' ; {self.cards}'
 
-    def get_point(self):
-        return 1 if self == Cards.ACE else self.value + 2
-
-    def get_index(self):
-        return self.value
-
-
-class Decision(Enum):
-    HIT = 0
-    STAND = 1
-    DOUBLE = 2
-    SPLIT = 3
-
-
-class BlackjackTotal:
-    def __init__(self, total: int, is_soft: bool = False):
-        self.total = total
-        self.is_soft = is_soft
-
-    def add(self, point: int):
-        if point == 1 and self.total < 11:
-            self.total += 11
-            self.is_soft = True
-            return
-
-        self.total += point
-
-        if self.total > 21 and self.is_soft:
+    def add(self, card: int) -> None:
+        self.cards.append(card)
+        self.total += card
+        if self.total > 21 and self.soft:
             self.total -= 10
-            self.is_soft = False
+            self.soft = False
+        elif self.total <= 11 and card == 1:
+            self.total += 10
+            self.soft = True
 
-    def is_busted(self) -> bool:
-        return self.total > 21 and not self.is_soft
-
-    def is_blackjack(self) -> bool:
-        return self.is_21() and self.is_soft
-
-    def is_21(self) -> bool:
+    def is21(self) -> bool:
         return self.total == 21
 
+    def isbj(self) -> bool:
+        return self.is21() and self.soft
 
-class Simulation:
-    blackjacks = busts = wins = ties = loses = []
-
-    def __init__(self, deck_count: int, player_total: BlackjackTotal, dealer_total: BlackjackTotal,
-                 certain_cards: list[Cards], player_decision, depth: int):
-        self.deck_count = deck_count
-        self.player_total = player_total
-        self.dealer_total = dealer_total
-        self.certain_cards = certain_cards
-        self.player_decision = player_decision
-        self.depth = depth
-
-    def start(self):
-        if self.player_total.is_blackjack():
-            print('Simulation with player having blackjack is redundant')
-            return
-
-        print('Welcome to the blackjack odds simulator developed by Mattzm2023')
-        print('Dealer\'s blackjack is INCLUDED within the odds')
-        print('===============================================')
-        print(generate_shuffled_cards(self.deck_count, self.certain_cards))
-        # self.fill_data()
-
-    def fill_data(self):
-        with alive_bar(10 ** (self.depth * 2), force_tty=True) as bar:
-            pass
-        pass
+    def isbust(self) -> bool:
+        return self.total > 21 and not self.soft
 
 
-
-
-def generate_shuffled_cards(deck_count: int, exceptions: list[Cards]) -> list[Cards]:
-    card_counts = [deck_count * 4] * 8 + [deck_count * 16] + [deck_count * 4]
-    deck = []
-
-    for exception in exceptions:
-        card_counts[exception.get_index()] -= 1
-
-    for i in range(len(card_counts)):
-        deck.extend([Cards(i)] * card_counts[i])
-
-    random.shuffle(deck)
-    return deck
+def calodds(cards: list[int], ptotal: BjTotal, dtotal: BjTotal) -> tuple[float, float, float]:
+    if ptotal.isbust():
+        return 0, 0, 1
+    elif dtotal.isbust():
+        return 1, 0, 0
+    elif dtotal.total >= 17:
+        if dtotal.total > ptotal.total:
+            return 0, 0, 1
+        elif dtotal.total == ptotal.total:
+            return 0, 1, 0
+        else:
+            return 1, 0, 0
+    win = tie = lose = 0
+    for i in range(1, 11):
+        if i not in cards:
+            continue
+        cardsdup = cards.copy()
+        cardsdup.remove(i)
+        dtotaldup = copy.copy(dtotal)
+        dtotaldup.add(i)
+        odds = calodds(cardsdup, ptotal, dtotaldup)
+        win += odds[0] * cards.count(i) / len(cards)
+        tie += odds[1] * cards.count(i) / len(cards)
+        lose += odds[2] * cards.count(i) / len(cards)
+    print(dtotal, (win, tie, lose))
+    return win, tie, lose
