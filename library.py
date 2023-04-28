@@ -1,10 +1,10 @@
-import random
+from enum import Enum
 import copy
 
 
 class BjTotal:
-    def __init__(self, *cards: int) -> None:
-        self.cards = list(cards)
+    def __init__(self, cards: list[int]) -> None:
+        self.cards = cards
         self.soft = 1 in cards and sum(cards) <= 11
         self.total = sum(cards) + (10 if self.soft else 0)
 
@@ -33,24 +33,50 @@ class BjTotal:
         return self.total > 21 and not self.soft
 
 
-def calodds(cards: list[int], ptotal: BjTotal, dtotal: BjTotal) -> tuple[float, float, float]:
+class BjOdds:
+    def __init__(self, win: float, tie: float, lose: float) -> None:
+        self.win = win
+        self.tie = tie
+        self.lose = lose
+        self.expvalue = self.calexpvalue()
+
+    def __str__(self) -> str:
+        _str = f'Win: {self.win}, Tie: {self.tie}, Lose: {self.lose}'
+        return _str + f'\nExpected Value: {self.expvalue}'
+
+    def calexpvalue(self) -> float:
+        return self.win - self.lose
+
+
+class BjOddsCol(Enum):
+    WIN = BjOdds(1, 0, 0)
+    TIE = BjOdds(0, 1, 0)
+    LOSE = BjOdds(0, 0, 1)
+
+
+def calodds(cards: list[int], ptotal: BjTotal, dtotal: BjTotal) -> list[BjOdds]:
+    odds = [calodds_s(cards, ptotal, dtotal)]
+    return odds
+
+
+def calodds_s(cards: list[int], ptotal: BjTotal, dtotal: BjTotal) -> BjOdds:
     if dtotal.isbj() and ptotal.isbj():
-        return 0, 1, 0
+        return BjOddsCol.TIE.value
     elif dtotal.isbj():
-        return 0, 0, 1
+        return BjOddsCol.LOSE.value
     elif ptotal.isbj():
-        return 1, 0, 0
+        return BjOddsCol.WIN.value
     elif ptotal.isbust():
-        return 0, 0, 1
+        return BjOddsCol.LOSE.value
     elif dtotal.isbust():
-        return 1, 0, 0
+        return BjOddsCol.WIN.value
     elif dtotal.total >= 17:
         if dtotal.total > ptotal.total:
-            return 0, 0, 1
+            return BjOddsCol.LOSE.value
         elif dtotal.total == ptotal.total:
-            return 0, 1, 0
+            return BjOddsCol.TIE.value
         else:
-            return 1, 0, 0
+            return BjOddsCol.WIN.value
     win = tie = lose = 0
     for i in range(1, 11):
         if i not in cards:
@@ -59,8 +85,8 @@ def calodds(cards: list[int], ptotal: BjTotal, dtotal: BjTotal) -> tuple[float, 
         cardsdup.remove(i)
         dtotaldup = copy.deepcopy(dtotal)
         dtotaldup.add(i)
-        odds = calodds(cardsdup, ptotal, dtotaldup)
-        win += odds[0] * cards.count(i) / len(cards)
-        tie += odds[1] * cards.count(i) / len(cards)
-        lose += odds[2] * cards.count(i) / len(cards)
-    return win, tie, lose
+        odds = calodds_s(cardsdup, ptotal, dtotaldup)
+        win += odds.win * cards.count(i) / len(cards)
+        tie += odds.tie * cards.count(i) / len(cards)
+        lose += odds.lose * cards.count(i) / len(cards)
+    return BjOdds(win, tie, lose)
